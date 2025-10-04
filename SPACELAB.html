@@ -1,0 +1,1665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISS Sensory Lab: Cupola & NBL Simulation</title>
+    <link rel="icon" type="image/png" href="./public/icon/icon.png" />
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Inter font -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            /* OLED Black base color */
+            background-color: #000000; 
+            /* Page background image for premium look */
+            background-image: url('./public/earth.jpg');
+            background-size: cover;
+            background-attachment: fixed;
+            color: #ffffff; /* Bright text on dark background */
+            overflow-x: hidden;
+        }
+
+        /* Main content overlay for visibility */
+        #content-area {
+            background-color: rgba(0, 0, 0, 0.9); 
+            /* Updated border and shadow to the required blue glow */
+            border: 1px solid rgba(0, 255, 255, 0.5);
+            box-shadow: 0 0 50px rgba(0, 255, 255, 0.4), 0 0 10px rgba(0, 255, 255, 0.8) inset;
+            backdrop-filter: blur(10px); 
+            transition: box-shadow 0.5s ease-in-out;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #00FFFF; /* Cyan accent */
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1a202c;
+        }
+        
+        /* BUTTON STYLING */
+        .shining-button {
+            transition: all 0.3s ease-out;
+            box-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
+            border: 1px solid #00FFFF;
+            background-color: rgba(0, 255, 255, 0.1);
+            color: #00FFFF;
+            position: relative;
+            overflow: hidden;
+        }
+        /* Hover effect: pulse glow and lift */
+        .shining-button:hover {
+            box-shadow: 0 0 40px #00FFFF, 0 0 15px #ffffff;
+            transform: translateY(-3px) scale(1.03);
+            background-color: rgba(0, 255, 255, 0.4);
+            color: #ffffff;
+        }
+        /* Active button style */
+        .shining-button.active {
+            box-shadow: 0 0 25px #00FFFF;
+            background-color: rgba(0, 255, 255, 0.6);
+            color: black; /* High contrast text for active state */
+            transform: scale(1.05);
+        }
+        .shining-button:disabled {
+            box-shadow: none;
+            border-color: #4a5568;
+            background-color: #1a202c;
+            color: #718096;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* INFO BUTTON (i) */
+        .info-btn {
+            background-color: #f6ad55;
+            color: #1a202c;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            font-weight: bold;
+            font-size: 16px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 0 10px #f6ad55;
+            z-index: 20;
+        }
+        .info-btn:hover {
+            background-color: #ed8936;
+            transform: scale(1.2);
+            box-shadow: 0 0 20px #ed8936;
+        }
+        
+        /* --- MODAL ANIMATION FIX --- */
+        #custom-modal {
+            /* Ensures smooth visibility transition */
+            transition: opacity 0.3s ease; 
+        }
+        .modal-content-wrapper {
+            /* Base state: invisible and scaled down */
+            transform: scale(0.95); 
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94); /* Smooth cubic transition */
+        }
+        #custom-modal.visible .modal-content-wrapper {
+            /* Target state: visible and full scale */
+            transform: scale(1);
+            opacity: 1;
+        }
+        
+        /* Setup Modal (Applied to the container itself for visibility, and to content for animation) */
+        #setup-modal {
+            transition: opacity 0.3s ease;
+        }
+        #setup-modal .setup-content {
+             /* Base state: scaled down */
+            transform: scale(0.95); 
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94); 
+        }
+        #setup-modal.visible .setup-content {
+            /* Target state: visible and full scale */
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        /* NBL Info Modal */
+        #nbl-info-modal {
+            transition: opacity 0.3s ease;
+        }
+        #nbl-info-modal .nbl-info-content {
+            transform: scale(0.95); 
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94); 
+        }
+        #nbl-info-modal.visible .nbl-info-content {
+            transform: scale(1);
+            opacity: 1;
+        }
+        /* NBL Slideshow */
+        .nbl-slideshow {
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            height: 350px; /* Fixed height for consistent look */
+            border-radius: 0.75rem;
+            background-color: #0d1117;
+            border: 2px solid #00FFFF;
+        }
+        .slide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .slide.active {
+            opacity: 1;
+        }
+        .slide img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        /* Slideshow navigation */
+        .slide-nav-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 10;
+            color: white;
+            padding: 0.5rem;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.3s;
+        }
+        .slide-nav-btn:hover {
+            background-color: rgba(0, 0, 0, 0.8);
+            transform: translateY(-50%) scale(1.1);
+        }
+        .slide-nav-btn.left {
+            left: 1rem;
+        }
+        .slide-nav-btn.right {
+            right: 1rem;
+        }
+        /* --- END MODAL ANIMATION FIX --- */
+
+
+        /* CUPOLA STYLES */
+        .cupola-window {
+            position: relative;
+            background-color: #000000;
+            box-shadow: 0 0 80px rgba(0, 255, 255, 0.8), inset 0 0 40px rgba(0,0,0,0.9);
+            border: 6px solid #00FFFF;
+            overflow: hidden; 
+        }
+
+        /* FIXED VIEW CONTAINER (LIVE STREAM OR IMAGE) */
+        .view-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1; 
+        }
+        .view-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            /* Added smooth transition to iframe for seamless video loading */
+            transition: opacity 0.5s ease-in-out; 
+        }
+        
+        /* STATIC BACKGROUND IMAGE TRANSITION */
+        .static-bg-image {
+            transition: opacity 0.5s ease-in-out;
+            background-size: cover;
+            background-position: center;
+            width: 100%; 
+            height: 100%; 
+        }
+
+        /* FRAME AND SHUTTER LAYER (This is the layer that zooms) */
+        .cupola-dynamic-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            transition: transform 0.15s ease-out; /* Smoother zoom transition */
+            pointer-events: none;
+            /* FIX: Adjusted pivot higher for better centering on window opening */
+            transform-origin: center 50%;
+        }
+
+        .cupola-dynamic-layer img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; 
+        }
+        
+        /* Custom styling for the zoom slider (The track) */
+        .zoom-slider-container {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 10px; /* Slightly thicker track */
+            background: #00FFFF; /* Cyan track */
+            background-image: linear-gradient(to right, #00FFFF, #004444);
+            border-radius: 5px;
+            outline: none;
+            box-shadow: 0 0 5px #00FFFF;
+        }
+        /* Custom styling for the zoom slider (The thumb) */
+        .zoom-slider-container::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #ffffff; /* White thumb for contrast */
+            cursor: grab;
+            box-shadow: 0 0 15px #00FFFF, 0 0 5px #ffffff;
+            transition: box-shadow 0.2s, transform 0.2s;
+        }
+        .zoom-slider-container::-webkit-slider-thumb:active {
+            transform: scale(1.1);
+            cursor: grabbing;
+        }
+        
+        /* NBL GAME STYLES */
+
+        /* Animation Keyframes for Water/Buoyancy Simulation */
+       
+        /* Water simulation background movement (to mimic ripples) */
+        @keyframes water-ripple {
+            0% { background-position: 0% 0%; }
+            100% { background-position: 100% 100%; }
+        }
+
+        /* Bubble effect keyframes - UPDATED to rise from anywhere and travel full height */
+        @keyframes bubble-rise {
+            0% { 
+                transform: translateY(0) scale(0.5); /* Start at its current randomized vertical position */
+                opacity: 0.7;
+            }
+            100% { 
+                /* Move bubble up and off screen, based on NBL_POOL_HEIGHT (500px) */
+                transform: translateY(-500px) scale(1.2); 
+                opacity: 0;
+            }
+        }
+        
+        /* 1. New Animation Keyframes for subtle vertical float */
+        @keyframes nbl-float {
+            0% { transform: translate(0, 0px) rotate(0deg); }
+            50% { transform: translate(0, -15px) rotate(0.5deg); } /* Gentle movement up and slight tilt */
+            100% { transform: translate(0, 0px) rotate(0deg); }
+        }
+
+        .nbl-pool {
+            /* Enhanced water look */
+            background-image: 
+                linear-gradient(to bottom, #002244 0%, #000a14 100%),
+                radial-gradient(circle at 10% 90%, rgba(0, 255, 255, 0.1), transparent),
+                radial-gradient(circle at 90% 10%, rgba(0, 100, 255, 0.1), transparent);
+            background-size: 200% 200%;
+            animation: water-ripple 60s linear infinite alternate; /* Subtle background motion */
+            box-shadow: inset 0 0 80px rgba(0, 200, 255, 0.7), 0 0 10px rgba(0, 200, 255, 0.3); /* Stronger inner glow/light */
+            border: 3px solid #00FFFF;
+            transition: all 0.5s ease;
+            position: relative; 
+        }
+        
+        /* Bubble Container and individual bubble styling */
+        .bubble-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5; 
+            overflow: hidden;
+        }
+        .bubble {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: rgba(170, 255, 255, 0.5);
+            border-radius: 50%;
+            box-shadow: 0 0 5px #00FFFF;
+            animation: bubble-rise 15s linear infinite;
+        }
+
+        /* Astronaut motion classes applied by JavaScript */
+        .nbl-astronaut-container {
+            transform-origin: center;
+        }
+        
+        /* INNER DIV: This element is used to apply the continuous floating animation */
+        .nbl-astronaut-floater {
+            width: 100%;
+            height: 100%;
+            /* Ensure the bobbing animation is NOT applied initially */
+            animation: none; 
+            transition: filter 0.5s;
+        }
+
+        /* 2. New class for floating animation (applied via JS when isNeutral is true) */
+        .nbl-floating .nbl-astronaut-floater {
+            /* Apply bobbing animation only when the parent has the 'nbl-floating' class */
+            animation: nbl-float 4s ease-in-out infinite alternate; 
+        }
+        
+        /* Astronaut Icon */
+        .astronaut-icon {
+            filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.8));
+            transition: filter 0.5s;
+        }
+
+        /* Custom Input Styling */
+        .sci-fi-input {
+            background-color: #0d1117;
+            border: 2px solid #00FFFF;
+            box-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+            transition: box-shadow 0.2s;
+        }
+        .sci-fi-input:focus {
+            box-shadow: 0 0 15px #00FFFF;
+        }
+
+
+        /* Footer Style */
+        .app-footer {
+            background-color: rgba(0, 0, 0, 0.9);
+            border-top: 2px solid #00FFFF;
+            box-shadow: 0 -5px 20px rgba(0, 255, 255, 0.3);
+            animation: pulse-border 5s infinite alternate;
+        }
+        @keyframes pulse-border {
+            from {
+                border-top-color: #00FFFF;
+            }
+            to {
+                border-top-color: #008888;
+            }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 min-h-screen">
+
+    <!-- Load Confetti Library (Used for successful EVA initiation) -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
+    <div id="app" class="max-w-6xl mx-auto">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl md:text-5xl font-extrabold text-white" style="text-shadow: 0 0 15px #00FFFF;">[ ISS SENSORY LAB ]</h1>
+            <p class="mt-2 text-xl text-white font-mono">Next-Generation Exploration Interface </p>
+        </header>
+
+        <!-- Mode Selector -->
+        <div class="flex justify-center mb-10 space-x-4">
+            <button id="cupola-btn" onclick="setMode('cupola')" class="shining-button px-8 py-4 rounded-lg font-semibold text-lg transition duration-300">
+                1. CUPOLA VIEW
+            </button>
+            <button id="nbl-btn" onclick="setMode('nbl')" class="shining-button px-8 py-4 rounded-lg font-semibold text-lg transition duration-300">
+                2. NBL TRAINING
+            </button>
+            <!-- NEW BUTTON FOR EVA GAME -->
+            <button id="eva-game-btn" onclick="setMode('eva')" class="shining-button px-8 py-4 rounded-lg font-semibold text-lg transition duration-300">
+                3. EVA GAME
+            </button>
+        </div>
+
+        <!-- Content Area - Game and other modules now load here -->
+        <div id="content-area" class="p-4 md:p-8 rounded-2xl shadow-2xl">
+            <!-- Content will be injected here -->
+        </div>
+
+        <!-- Message Box for NBL Game Feedback -->
+        <div id="message-box" class="fixed bottom-16 right-4 p-4 rounded-lg shadow-xl hidden z-40 text-white" style="background-color: rgba(255, 165, 0, 0.9); box-shadow: 0 0 15px rgba(255, 200, 0, 0.7);">
+            <!-- Messages, loading indicators, or task results will appear here -->
+        </div>
+    </div>
+    
+    <!-- Custom Modal/Dialog Box for Info Buttons -->
+    <div id="custom-modal" class="fixed inset-0 bg-black bg-opacity-90 hidden z-50 flex items-center justify-center p-4">
+        <div class="modal-content-wrapper bg-gray-900 p-8 rounded-xl shadow-2xl max-w-lg w-full border border-blue-500" onclick="event.stopPropagation()" style="box-shadow: 0 0 40px #00FFFF; backdrop-filter: blur(10px);">
+            <h3 id="modal-title" class="text-2xl font-bold text-white mb-4 border-b border-blue-500 pb-2"></h3>
+            <p id="modal-content" class="text-gray-300 mb-6"></p>
+            <button onclick="closeModal()" class="w-full px-4 py-3 rounded-lg font-semibold transition duration-200 shining-button text-base">
+                Dismiss Interface
+            </button>
+        </div>
+    </div>
+    
+    <!-- Setup Modal -->
+    <div id="setup-modal" class="fixed inset-0 bg-black bg-opacity-90 hidden z-50 flex items-center justify-center p-4" onclick="closeSetupModal()">
+        <!-- Content will be injected by renderSetupModal() -->
+    </div>
+
+    <!-- NBL Info Modal (This is where the slideshow is injected) -->
+    <div id="nbl-info-modal" class="fixed inset-0 bg-black bg-opacity-90 hidden z-50 flex items-center justify-center p-4">
+        <!-- Content injected by showNBLInfo() -->
+    </div>
+
+    <div id="camera-modal" class="fixed inset-0 bg-black bg-opacity-90 hidden z-50 flex items-center justify-center p-4" onclick="closeCameraModal()">
+    </div>
+
+    <!-- Footer Section -->
+    <footer class="app-footer fixed bottom-0 left-0 right-0 p-3 text-center text-sm text-gray-400 font-mono">
+        PROJECT FOR: 2025 NASA Space App Challenge // CREATOR: Jeeval Jolly Jacob
+    </footer>
+    
+    <!-- Camera Module Logic (Required) -->
+    <script src="camera_module.js"></script>
+
+    <script type="module">
+
+        const contentArea = document.getElementById('content-area');
+        const cupolaBtn = document.getElementById('cupola-btn');
+        const nblBtn = document.getElementById('nbl-btn');
+        const evaGameBtn = document.getElementById('eva-game-btn'); // New button reference
+        const messageBox = document.getElementById('message-box');
+        const customModal = document.getElementById('custom-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalContent = document.getElementById('modal-content');
+        const setupModal = document.getElementById('setup-modal');
+        const nblInfoModal = document.getElementById('nbl-info-modal'); // Required DOM element reference
+
+        const LIVE_STREAM_ID = "fO9e9jnhYK8";
+        const NASA_IMAGE_BASE_URL = "https://images-assets.nasa.gov/image/";
+        
+        // --- GLOBAL STATE ---
+        let userName = 'OBSERVER';
+        let userWeight = 70;
+        let customSuitColor = '#00FFFF'; // Default Cyan
+        let customSkinColor = '#fcd5b8'; // Default Light Skin
+        let customFaceImage = null;
+        let nblInfoShown = false; // Flag to track if the NBL info has been displayed
+
+        const SKIN_TONES = [
+            { name: "Light", color: "#fcd5b8" },
+            { name: "Medium", color: "#a57c65" },
+            { name: "Dark", color: "#6a4a3e" },
+        ];
+
+        const SUIT_COLORS = [
+            { name: "Cyan", color: "#00FFFF" },
+            { name: "Red", color: "#FF0040" },
+            { name: "Yellow", color: "#FFFF00" },
+            { name: "Green", color: "#00FF7F" },
+        ];
+
+        const NBL_INFO_SLIDES = [
+            {
+                image: './public/pool1.jpg',
+                heading: 'What is the NBL?',
+                description: 'The Neutral Buoyancy Laboratory (NBL) is a massive NASA indoor pool in Houston, Texas. Its used to train astronauts for spacewalks by simulating weightlessness. This allows them to rehearse complex tasks underwater before performing them in orbit.  '
+            },
+            {
+                image: './public/pool2.jpg',
+                heading: 'Why Use a Pool for Spacewalks?',
+                description: 'The NBL pool is the world\'s largest indoor body of water, measuring 6.2 million gallons. By carefully balancing the astronaut\'s weight and the buoyancy of their suit, the water simulates the weightless environment of space.'
+            },
+            {
+                image: './public/pool3.jpg',
+                heading: 'Preparing for a Spacewalk',
+                description: 'Before a spacewalk, astronauts, along with a team of divers, spend countless hours practicing tasks on life-sized models of the International Space Station (ISS) submerged in the NBL pool. This hands-on training is critical for mission success.'
+            },
+            {
+                image: './public/pool4.jpg',
+                heading: 'Zero-G in the Water',
+                description: 'The goal of NBL training is to achieve Neutral Buoyancy, a state where the upward buoyant force of the water perfectly counteracts the downward force of gravity. In the NBL, achieving this precise balance allows the astronaut to float, accurately simulating the microgravity environment of a spacewalk in orbit.'
+            },
+            {
+                image: './public/pool5.jpg',
+                heading: 'Ready for Your Simulation?',
+                description: 'The NBL training module allows you to simulate the core challenge of neutral buoyancy. Your mission is to find the perfect balance of ballast and lift to achieve a stable, weightless state before you can begin your virtual EVA task.'
+            }
+        ];
+        // --- END GLOBAL STATE ---
+
+        const LOCATIONS = [
+            // 0: Live Stream Option (NO FRAME OVERLAY)
+            { 
+                name: "Live ISS Feed", 
+                isLive: true, 
+                streamUrl: `https://www.youtube-nocookie.com/embed/${LIVE_STREAM_ID}?autoplay=1&mute=1&loop=1&playlist=${LIVE_STREAM_ID}`,
+                initialBenefitText: "Observing Earth in real-time provides constant meteorological data and promotes global outreach, inspiring future scientists and monitoring global weather patterns.",
+            },
+            // 1: Amazon Rainforest
+            { 
+                name: "Amazon Rainforest", 
+                imageUrl: `${NASA_IMAGE_BASE_URL}s43-152-000b/s43-152-000b~orig.jpg`, 
+                initialBenefitText: "Tracking the Amazon's vast canopy allows scientists to monitor deforestation, carbon sequestration rates, and biodiversity health, crucial for planetary climate regulation.",
+            },
+            // 2: Himalayan Glaciers
+            { 
+                name: "Himalayan Glaciers", 
+                imageUrl: `${NASA_IMAGE_BASE_URL}iss069e003192/iss069e003192~orig.jpg`, 
+                initialBenefitText: "Glacier observation from orbit provides vital intelligence on ice melt, which is essential for managing the water resources that support agriculture and populations across Asia.",
+            },
+            // 3: Sahara Desert
+            { 
+                name: "Sahara Desert", 
+                imageUrl: `${NASA_IMAGE_BASE_URL}sts068-228-081/sts068-228-081~orig.jpg`, 
+                initialBenefitText: "Monitoring dust plumes from the Sahara tracks atmospheric particle transport, which influences weather systems and provides mineral nutrients to distant oceanic and rainforest ecosystems.",
+            },
+            // 4: The Great Barrier Reef
+            { 
+                name: "The Great Barrier Reef", 
+                imageUrl: `${NASA_IMAGE_BASE_URL}sts048-151-250/sts048-151-250~orig.jpg`, 
+                initialBenefitText: "Space-based imagery reveals large-scale changes in coral health and bleaching events, guiding targeted conservation strategies to protect the world's largest marine structure.",
+            },
+            // 5: Night Lights
+            { 
+                name: "Night Lights (Cities)", 
+                imageUrl: `${NASA_IMAGE_BASE_URL}iss035e017268/iss035e017268~orig.jpg`, 
+                initialBenefitText: "Observing city lights provides demographic data, monitors disaster recovery efforts, and helps optimize urban planning for energy efficiency and resource distribution.",
+            }
+        ];
+        
+        // --- Utility Functions (Messaging and Modal) ---
+
+        /**
+         * Displays a temporary notification message on the screen.
+         */
+        function showMessage(text, type = 'info') {
+            messageBox.textContent = text;
+            
+            let bgColor = 'bg-yellow-800';
+            let shadowColor = 'rgba(255, 165, 0, 0.9)';
+
+            if (type === 'success') {
+                bgColor = 'bg-green-800';
+                shadowColor = 'rgba(0, 255, 0, 0.7)';
+            } else if (type === 'error') {
+                bgColor = 'bg-red-800';
+                shadowColor = 'rgba(255, 0, 0, 0.7)';
+            }
+
+            messageBox.className = `fixed bottom-16 right-4 p-4 rounded-lg shadow-xl transition-opacity duration-300 z-40 ${bgColor} text-white`;
+            messageBox.style.cssText = `display: block; box-shadow: 0 0 15px ${shadowColor};`;
+            
+            setTimeout(() => {
+                messageBox.style.display = 'none';
+            }, 5000);
+        }
+
+        /**
+         * Shows the custom modal with specific content and animation.
+         */
+        window.showModal = (title, content) => {
+            modalTitle.textContent = title;
+            modalContent.textContent = content;
+            customModal.style.opacity = 0;
+            customModal.style.display = 'flex';
+            
+            // Wait a tiny bit for display property to apply, then start transition
+            setTimeout(() => {
+                customModal.classList.add('visible');
+                customModal.style.opacity = 1;
+            }, 10);
+        };
+
+        /**
+         * Closes the custom modal with animation.
+         */
+        window.closeModal = () => {
+            customModal.style.opacity = 0;
+            customModal.classList.remove('visible');
+            
+            // Hide completely after transition finishes (300ms)
+            setTimeout(() => {
+                customModal.style.display = 'none';
+            }, 300);
+        };
+        
+        /**
+         * Helper function to display info based on panel name.
+         */
+        window.showInfo = (panel) => {
+            let title = "";
+            let content = "";
+
+            if (panel === 'Ballast') {
+                title = "SYSTEM: Ballast (Counterweight)";
+                content = "Ballast represents dense, heavy material (like lead) used to offset natural buoyancy and sinking tendencies. In training, adding Ballast helps a buoyant astronaut sink to the target depth and achieve precise positional control.";
+            } else if (panel === 'Lift') {
+                title = "SYSTEM: Lift (Buoyancy Compensation)";
+                content = "Lift represents air bladders or foam components added to the EVA suit. When the astronaut is too heavy and sinking, Lift is used to provide an upward force, moving the astronaut back toward the Neutral Buoyancy Zone.";
+            } else if (panel === 'NeutralBuoyancy') {
+                 title = "SYSTEM: Neutral Buoyancy (Zero-G Simulation)";
+                content = "This is the state where the upward buoyant force exactly equals the downward gravitational force (weight). In the NBL, achieving this precise balance allows the astronaut to float, accurately simulating the microgravity environment of a spacewalk in orbit.";
+            }
+
+            if (title && content) {
+                showModal(title, content);
+            }
+        };
+        
+        /**
+         * Updates customization state and previews the astronaut's look.
+         */
+        window.updateCustomization = (type, value) => {
+            if (type === 'suit') {
+                customSuitColor = value;
+            } else if (type === 'skin') {
+                customSkinColor = value;
+            }
+            
+            // Re-render the small astronaut preview in the Cupola view and the setup modal if visible
+            renderAstronautPreview('astronaut-preview-container');
+            renderAstronautPreview('setup-astronaut-preview');
+            
+            // Update the main cupola status panel in real-time
+            updateCupolaStatus();
+        };
+
+        /**
+         * Renders the small astronaut preview in a specified container (for customization).
+         */
+        function renderAstronautPreview(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            // Use w-16 h-16 for the small preview icons
+            container.innerHTML = getAstronautSVG(customSuitColor, customSkinColor, 'w-16 h-16 mx-auto');
+
+            // Set active states on buttons globally (for initial modal and main page)
+            const parent = container.closest('#setup-modal') || container.closest('#content-area');
+
+            if (parent) {
+                parent.querySelectorAll('.suit-color-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.color === customSuitColor);
+                });
+                parent.querySelectorAll('.skin-color-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.color === customSkinColor);
+                });
+            }
+        }
+        
+        /**
+         * Updates the user's name and astronaut in the Cupola Telemetry Panel.
+         */
+        function updateCupolaStatus() {
+            const nameEl = document.getElementById('observer-name-status');
+            const observerIcon = document.getElementById('observer-icon-container');
+
+            if (nameEl) nameEl.textContent = userName.toUpperCase();
+            // Use w-16 h-16 for the small status icons
+            if (observerIcon) observerIcon.innerHTML = getAstronautSVG(customSuitColor, customSkinColor, 'w-16 h-16 text-white mx-auto');
+        }
+
+        /**
+         * Returns the customizable, detailed astronaut SVG.
+         */
+         function getAstronautSVG(suitColor, skinColor, classes = '') {
+    const faceContent = customFaceImage ? 
+        // If face image exists, use it with a clip path
+        `
+        <defs>
+            <clipPath id="faceClip">
+            <!-- Larger, centered circular window -->
+            <circle cx="50" cy="20" r="20"/>
+            </clipPath>
+        </defs>
+
+        <!-- Face Image with slightly larger area -->
+        ${
+        customFaceImage
+        ? `<image x="36" y="8" width="28" height="28" href="${customFaceImage}" clip-path="url(#faceClip)" preserveAspectRatio="xMidYMid slice" />`
+        : `<circle cx="50" cy="20" r="20" fill="${skinColor}" clip-path="url(#faceClip)" />`
+        }
+
+        <!-- Light blue reflection highlight, not covering face -->
+        <path d="M38 10 C 42 8, 46 8, 50 10 L 52 12 L 48 12 Z" fill="#88ffff" opacity="0.4"/>
+        `
+        :
+        // Fallback to the original skin tone circles
+        `
+        <path d="M40 18 C 35 25, 65 25, 60 18 L 55 10 L 45 10 Z" fill="#444444"/>
+        <path d="M42 12 C 40 14, 40 18, 42 18 L 45 15 L 42 12 Z" fill="#88ffff" opacity="0.7"/>
+        <circle cx="50" cy="18" r="8" fill="${skinColor}" opacity="0.8"/>
+        `;
+
+    return `
+        <svg class="${classes} drop-shadow-lg" viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+            <!-- Helmet (main suit color) -->
+            <ellipse cx="50" cy="20" rx="20" ry="18" fill="${suitColor}" stroke="#ffffff" stroke-width="2"/>
+            <!-- Face Content (Dynamically inserted) -->
+            ${faceContent}
+
+            <!-- Visor Reflection/Highlight -->
+            <path d="M42 12 C 40 14, 40 18, 42 18 L 45 15 L 42 12 Z" fill="#88ffff" opacity="0.7"/>
+
+            <!-- Neck Gasket -->
+            <rect x="40" y="32" width="20" height="5" fill="#AAAAAA"/>
+
+            <!-- Torso (main suit color) -->
+            <rect x="30" y="37" width="40" height="40" rx="8" fill="${suitColor}" stroke="#ffffff" stroke-width="1"/>
+            <rect x="35" y="42" width="30" height="15" rx="3" fill="#ffffff" opacity="0.8"/>
+            <rect x="30" y="35" width="40" height="15" rx="4" fill="#333333"/>
+
+            <!-- Arms/Gloves -->
+            <rect x="22" y="38" width="8" height="25" rx="4" fill="${suitColor}"/>
+            <rect x="70" y="38" width="8" height="25" rx="4" fill="${suitColor}"/>
+            <rect x="18" y="60" width="8" height="15" rx="3" fill="${skinColor}"/>
+            <rect x="74" y="60" width="8" height="15" rx="3" fill="${skinColor}"/>
+            <circle cx="22" cy="78" r="4" fill="${suitColor}"/>
+            <circle cx="78" cy="78" r="4" fill="${suitColor}"/>
+
+            <!-- Legs -->
+            <rect x="35" y="77" width="10" height="20" rx="3" fill="${suitColor}"/>
+            <rect x="55" y="77" width="10" height="20" rx="3" fill="${suitColor}"/>
+            <rect x="35" y="95" width="10" height="15" rx="3" fill="${skinColor}"/>
+            <rect x="55" y="95" width="10" height="15" rx="3" fill="${skinColor}"/>
+            <path d="M30 110 L 45 110 L 45 118 L 30 118 Z" fill="#333333"/>
+            <path d="M55 110 L 70 110 L 70 118 L 55 118 Z" fill="#333333"/>
+        </svg>
+    `;
+}
+
+
+        // --- Mode Switching ---
+
+        window.setMode = (mode) => {
+            // Remove active style from all
+            [cupolaBtn, nblBtn, evaGameBtn].forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            let activeBtn;
+
+            // Stop the EVA game loop if switching away from the game
+            if (mode !== 'eva' && typeof stopSpaceGame === 'function') {
+                stopSpaceGame();
+            }
+
+            if (mode === 'cupola') {
+                activeBtn = cupolaBtn;
+                renderCupola();
+            } else if (mode === 'nbl') {
+                activeBtn = nblBtn;
+                if (!nblInfoShown) {
+                    showNBLInfo();
+                } else {
+                    renderNBL();
+                }
+            } else if (mode === 'eva') {
+                activeBtn = evaGameBtn;
+                renderEVAGame(); // Call the new game renderer
+            }
+
+            // Apply selected style
+            if (activeBtn) {
+                 activeBtn.classList.add('active');
+            }
+        };
+        
+        /**
+         * Closes the setup modal with animation.
+         */
+        window.closeSetupModal = () => {
+            setupModal.style.opacity = 0;
+            setupModal.classList.remove('visible');
+            
+            // Hide completely after transition finishes (300ms)
+            setTimeout(() => {
+                setupModal.style.display = 'none';
+            }, 300);
+        };
+
+        // --- Initial Setup Modal Logic ---
+
+        window.submitSetup = () => {
+            const nameInput = document.getElementById('input-name').value.trim();
+            const weightInput = parseFloat(document.getElementById('input-initial-weight').value);
+
+            if (!nameInput || nameInput.length < 2) {
+                showMessage("Input Error: Please enter a valid name (at least 2 characters).", 'error');
+                return;
+            }
+            if (isNaN(weightInput) || weightInput < 40 || weightInput > 150) {
+                showMessage("Input Error: Weight must be a number between 40kg and 150kg.", 'error');
+                return;
+            }
+
+            // Update global state
+            userName = nameInput;
+            userWeight = weightInput;
+            astronautWeight = userWeight; // Set NBL weight immediately
+            
+            // Close modal with animation and render main view
+            closeSetupModal();
+            setMode('cupola'); 
+        };
+
+        function renderSetupModal() {
+             // Set up click-outside-modal handler (to prevent closing on content click)
+            setupModal.onclick = (e) => {
+                if (e.target === setupModal) {
+                    closeSetupModal();
+                }
+            };
+            
+            setupModal.innerHTML = `
+                <div class="setup-content bg-gray-900 p-8 rounded-xl shadow-2xl max-w-2xl w-full border-4 border-blue-500" onclick="event.stopPropagation()" style="box-shadow: 0 0 50px #00FFFF, 0 0 20px #00FFFF inset; backdrop-filter: blur(10px);">
+                    <h3 class="text-3xl font-bold text-white mb-4 border-b border-blue-500 pb-2">:: ASTRONAUT SUIT CONFIGURATOR ::</h3>
+                    <p class="text-gray-300 mb-6 font-mono">Input your credentials and customize your simulated EVA suit and model before starting the mission simulation.</p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Input Fields -->
+                        <div class="space-y-4">
+                            <div>
+                                <label for="input-name" class="block text-white font-semibold mb-1">OBSERVER IDENTIFIER (NAME)</label>
+                                <!-- FIX: Updated placeholder text -->
+                                <input id="input-name" type="text" placeholder="Enter your Name" value="${userName === 'OBSERVER' ? '' : userName}"
+                                       class="w-full p-3 rounded-lg sci-fi-input text-white transition">
+                            </div>
+                            <div>
+                                <label for="input-initial-weight" class="block text-white font-semibold mb-1">BASELINE MASS (KG) [40-150]</label>
+                                <input id="input-initial-weight" type="number" min="40" max="150" value="${userWeight}"
+                                       class="w-full p-3 rounded-lg sci-fi-input text-white transition">
+                            </div>
+                        </div>
+
+                        <!-- Customization Preview -->
+                        <div class="space-y-4">
+                             <div class="text-center">
+                                <p class="text-sm text-gray-400 mb-2">NBL MODEL PREVIEW</p>
+                                <div id="setup-astronaut-preview" class="inline-block relative">
+                                    <!-- SVG will be rendered here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Customization Controls -->
+                    <div class="mt-6 border-t border-gray-800 pt-4 space-y-4">
+                        <h4 class="text-lg font-semibold text-white">SUIT CONFIGURATION</h4>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <!-- Suit Color Selector -->
+                            <div>
+                                <label class="block text-sm font-bold text-gray-400 mb-2">SUIT PRIMARY COLOR</label>
+                                <div class="flex space-x-2">
+                                    ${SUIT_COLORS.map(c => `
+                                        <button 
+                                            class="suit-color-btn w-8 h-8 rounded-full border-2 transition hover:scale-110 ${c.color === customSuitColor ? 'active border-white ring-2 ring-offset-2 ring-offset-gray-900' : 'border-gray-500'}" 
+                                            style="background-color: ${c.color};"
+                                            data-color="${c.color}"
+                                            onclick="updateCustomization('suit', '${c.color}')"
+                                        ></button>
+                                    `).join('')}
+                                </div>
+                            </div>
+
+                            <!-- Skin Tone Selector -->
+                            <div>
+                                <label class="block text-sm font-bold text-gray-400 mb-2">OBSERVER SKIN TONE</label>
+                                <div class="flex space-x-2">
+                                    ${SKIN_TONES.map(t => `
+                                        <button 
+                                            class="skin-color-btn w-8 h-8 rounded-full border-2 transition hover:scale-110 ${t.color === customSkinColor ? 'active border-white ring-2 ring-offset-2 ring-offset-gray-900' : 'border-gray-500'}" 
+                                            style="background-color: ${t.color};"
+                                            data-color="${t.color}"
+                                            onclick="updateCustomization('skin', '${t.color}')"
+                                        ></button>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    
+                    <button onclick="renderCameraModal()" class="w-full mt-4 px-4 py-3 rounded-lg font-semibold transition duration-200 shining-button text-base" style="border-color: #FF0040; box-shadow: 0 0 15px #FF0040;">
+                        USE CAMERA TO CAPTURE FACE
+                    </button>
+
+                    <button onclick="submitSetup()" class="w-full mt-8 px-4 py-3 rounded-lg font-semibold transition duration-200 shining-button text-lg bg-green-500 text-black hover:bg-green-600" style="border-color: #00FF00; box-shadow: 0 0 20px #00FF00;">
+                        BEGIN SIMULATION
+                    </button>
+                </div>
+            `;
+            // FIX: Ensure the modal opens and applies the animation classes
+            setupModal.style.opacity = 0;
+            setupModal.style.display = 'flex';
+            setTimeout(() => {
+                setupModal.classList.add('visible');
+                setupModal.style.opacity = 1;
+                renderAstronautPreview('setup-astronaut-preview');
+            }, 10);
+        }
+
+        // --- Cupola Experience Logic ---
+
+        window.handleZoom = (value) => {
+            const dynamicLayer = document.getElementById('cupola-dynamic-layer');
+            // Zoom Multiplier is 2.0: Max scale of 3.0 (1.0 + 2.0)
+            const scale = 1.0 + (value / 100) * 2.0; 
+            dynamicLayer.style.transform = `scale(${scale})`;
+        };
+
+        window.selectLocation = (index) => {
+            const location = LOCATIONS[index];
+            const viewContainer = document.getElementById('cupola-view-container');
+            const dynamicLayer = document.getElementById('cupola-dynamic-layer');
+            const benefitsContainer = document.getElementById('cupola-benefits');
+            const zoomControl = document.getElementById('zoom-control');
+            
+            if (!viewContainer || !dynamicLayer || !zoomControl) return;
+
+            // Update the display for the CURRENT TARGET label (Fix applied here)
+            document.getElementById('cupola-location-name').textContent = location.name;
+
+            benefitsContainer.textContent = location.initialBenefitText;
+            
+            // Step 1: Fade out the current view immediately using the CSS transition.
+            viewContainer.style.opacity = 0;
+            
+            // Live Stream Logic
+            if (location.isLive) {
+                // Ensure frame is hidden for live stream
+                dynamicLayer.style.display = 'none';
+                zoomControl.style.display = 'none';
+
+                // Wait for fade out to complete (500ms), then inject new content and fade in.
+                setTimeout(() => {
+                    viewContainer.innerHTML = `
+                        <iframe 
+                            src="${location.streamUrl}" 
+                            allow="autoplay; encrypted-media; picture-in-picture" 
+                            allowfullscreen
+                            class="w-full h-full"
+                        ></iframe>
+                    `;
+                    // Fade in the parent container
+                    viewContainer.style.opacity = 1; 
+                }, 500); 
+
+            } 
+            // Static Image Logic
+            else {
+                dynamicLayer.style.display = 'block';
+                zoomControl.style.display = 'block';
+                
+                const imageUrl = location.imageUrl;
+                const tempImg = new Image();
+                
+                // Load the image invisibly
+                tempImg.onload = () => {
+                    // 2. Inject the static background instantly
+                    setTimeout(() => {
+                        viewContainer.innerHTML = `
+                            <div 
+                                class="static-bg-image w-full h-full" 
+                                style="background-image: url('${imageUrl}'); background-size: cover; background-position: center;"
+                            ></div>
+                        `;
+                        // 3. Fade in the new content
+                        viewContainer.style.opacity = 1; 
+                    }, 500); // Wait 500ms for old content to fade out
+                };
+
+                tempImg.onerror = () => {
+                    // If image fails, still wait 500ms before showing error and fading in
+                    setTimeout(() => {
+                        viewContainer.innerHTML = `<div class="w-full h-full flex items-center justify-center bg-gray-900 text-red-500">IMAGE LOAD FAILURE: Check Console for Path Error</div>`;
+                        viewContainer.style.opacity = 1; 
+                    }, 500);
+                };
+
+                // Start loading the image instantly after setting opacity=0
+                tempImg.src = imageUrl;
+
+                // Reset zoom on new image load
+                document.getElementById('zoom-slider').value = 0;
+                handleZoom(0);
+            }
+        };
+
+        function renderCupola() {
+            contentArea.innerHTML = `
+                <div class="p-4 md:p-8 rounded-2xl">
+                    <h2 class="text-3xl font-bold text-white mb-6 border-b border-gray-800 pb-3" style="text-shadow: 0 0 5px #00FFFF;">Cupola: The Astronaut’s Window to Earth</h2>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- Controls Panel -->
+                        <div class="lg:col-span-1 p-6 rounded-xl border border-blue-800 space-y-4" style="background-color: rgba(0, 0, 0, 0.9);">
+                            <h3 class="text-xl font-semibold mb-4 text-white border-b border-gray-800 pb-2">TARGET SELECT & TELEMETRY</h3>
+                            <select id="location-select" onchange="selectLocation(this.value)" class="w-full p-3 rounded-lg sci-fi-input text-white focus:ring-blue-500 focus:border-blue-500 cursor-pointer transition">
+                                ${LOCATIONS.map((loc, i) => `<option value="${i}">${loc.name}${loc.isLive ? ' [LIVE]' : ''}</option>`).join('')}
+                            </select>
+
+                            <!-- Zoom Control -->
+                            <div id="zoom-control" class="mt-6 p-4 rounded-lg border-l-4 border-yellow-500" style="background-color: rgba(0, 0, 0, 0.9);">
+                                <label for="zoom-slider" class="block text-lg font-bold text-yellow-400 mb-2">INTERFACE ZOOM (PEEK)</label>
+                                <input type="range" id="zoom-slider" min="0" max="100" value="0" oninput="handleZoom(this.value)" class="zoom-slider-container">
+                                <p class="text-sm text-gray-400 mt-1 font-mono">Max scale 3.0X</p>
+                            </div>
+
+                            <div class="mt-6 p-4 rounded-lg border-l-4 border-blue-500" style="background-color: rgba(0, 0, 0, 0.9);">
+                                <!-- START FIX: Added block structure to separate lines -->
+                                <h4 class="text-lg font-bold text-blue-400">CURRENT TARGET:</h4>
+                                <div class="mt-1 mb-4">
+                                    <span id="cupola-location-name" class="font-normal text-white text-xl">${LOCATIONS[0].name}</span>
+                                </div>
+                                <!-- END FIX -->
+                                
+                                <h4 class="text-lg font-bold text-blue-400 mb-2">EARTH SCIENCE BENEFIT:</h4>
+                                <p id="cupola-benefits" class="text-gray-300 text-sm italic font-mono">${LOCATIONS[0].initialBenefitText}</p>
+                            </div>
+                            
+                            <!-- Astronaut Character (NOW CLICKABLE) -->
+                            <div class="mt-6 text-center border-t border-gray-800 pt-4 cursor-pointer hover:bg-gray-800 transition rounded-lg" onclick="renderSetupModal()">
+                                <!-- FIX: Combined status text for better alignment and made the whole div relative -->
+                                <p class="text-sm text-gray-400 mb-2 relative flex items-center justify-center space-x-2">
+                                    <span>OBSERVER STATUS:</span>
+                                    <span id="observer-name-status">${userName.toUpperCase()} (ACTIVE)</span>
+                                    <!-- FIX: Moved green dot next to the text -->
+                                    <span class="h-3 w-3 bg-green-500 rounded-full shadow-xl" style="box-shadow: 0 0 10px #00FF00;"></span>
+                                </p>
+                                <div id="observer-icon-container" class="inline-block relative">
+                                    <!-- Icon updated by updateCupolaStatus() -->
+                                </div>
+                                <p class="text-xs text-blue-400 mt-1">[ Click to Edit Observer Data ]</p>
+                            </div>
+                        </div>
+
+                        <!-- Right Column: Cupola View and Customization -->
+                        <div class="lg:col-span-2 space-y-6">
+                            <!-- Cupola Visual -->
+                            <div class="relative aspect-video cupola-window rounded-2xl">
+                                <!-- Z-Index 1: Dynamic View (Image or Iframe) -->
+                                <div id="cupola-view-container" class="view-container opacity-0 transition-opacity duration-500">
+                                    <!-- Content injected here -->
+                                </div>
+
+                                <!-- Z-Index 10: Fixed Cupola Frame Overlay (This element zooms) -->
+                                <div id="cupola-dynamic-layer" class="cupola-dynamic-layer">
+                                    <img src="./public/frame.png" alt="ISS Cupola Frame Overlay" onerror="this.src='https://placehold.co/1000x500/0d1117/ffffff?text=frame.png+Not+Found'">
+                                </div>
+                            </div>
+                            
+                            <!-- Astronaut Customization Panel (MOVED HERE) -->
+                            <div class="p-6 rounded-xl border border-blue-800 space-y-4" style="background-color: rgba(0, 0, 0, 0.9);">
+                                <h3 class="text-xl font-semibold text-white border-b border-gray-800 pb-2">OBSERVER CUSTOMIZATION</h3>
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                                    <!-- Suit Color Selector -->
+                                    <div>
+                                        <label class="block text-sm font-bold text-gray-400 mb-2">SUIT PRIMARY COLOR</label>
+                                        <div class="flex space-x-2">
+                                            ${SUIT_COLORS.map(c => `
+                                                <button 
+                                                    class="suit-color-btn w-8 h-8 rounded-full border-2 transition hover:scale-110 ${c.color === customSuitColor ? 'active border-white ring-2 ring-offset-2 ring-offset-gray-900' : 'border-gray-500'}" 
+                                                    style="background-color: ${c.color};"
+                                                    data-color="${c.color}"
+                                                    onclick="updateCustomization('suit', '${c.color}')"
+                                                ></button>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+
+                                    <!-- Skin Tone Selector -->
+                                    <div>
+                                        <label class="block text-sm font-bold text-gray-400 mb-2">OBSERVER SKIN TONE</label>
+                                        <div class="flex space-x-2">
+                                            ${SKIN_TONES.map(t => `
+                                                <button 
+                                                    class="skin-color-btn w-8 h-8 rounded-full border-2 transition hover:scale-110 ${t.color === customSkinColor ? 'active border-white ring-2 ring-offset-2 ring-offset-gray-900' : 'border-gray-500'}" 
+                                                    style="background-color: ${t.color};"
+                                                    data-color="${t.color}"
+                                                    onclick="updateCustomization('skin', '${t.color}')"
+                                                ></button>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+
+                                    <!-- Astronaut Preview -->
+                                    <div class="text-center pt-2">
+                                        <p class="text-sm text-gray-400 mb-2">NBL MODEL PREVIEW</p>
+                                        <div id="astronaut-preview-container" class="inline-block relative">
+                                            <!-- SVG will be rendered here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            // Call initial view setup and render preview
+            selectLocation(0); 
+            renderAstronautPreview('astronaut-preview-container');
+            updateCupolaStatus(); // Ensure name/icon are correct on render
+        }
+
+        // --- NBL Info Modal Logic ---
+
+        let currentSlideIndex = 0;
+        let slideInterval;
+
+        // ** FIX 1: Expose function globally so HTML onclick can find it **
+        window.closeNBLInfoModal = function() {
+            clearInterval(slideInterval);
+            // Hide and remove visibility class
+            nblInfoModal.style.opacity = 0;
+            nblInfoModal.classList.remove('visible');
+            nblInfoShown = true; // Set flag to true to skip modal on future visits
+            setTimeout(() => {
+                nblInfoModal.style.display = 'none';
+                renderNBL(); // Immediately go to the NBL simulation
+            }, 300);
+        }
+
+        window.showNBLInfo = () => {
+            // Re-inject content every time to ensure fresh event handlers
+            nblInfoModal.innerHTML = `
+                <div class="nbl-info-content bg-gray-900 p-8 rounded-xl shadow-2xl max-w-4xl w-full border-4 border-blue-500" onclick="event.stopPropagation()" style="box-shadow: 0 0 50px #00FFFF, 0 0 20px #00FFFF inset; backdrop-filter: blur(10px);">
+                    <h3 class="text-3xl font-bold text-white mb-4 border-b border-blue-500 pb-2 text-center">:: NEUTRAL BUOYANCY LABORATORY ::</h3>
+                    
+                    <!-- Slideshow Container -->
+                    <div class="nbl-slideshow relative mb-6">
+                        ${NBL_INFO_SLIDES.map((slide, index) => `
+                            <div class="slide ${index === 0 ? 'active' : ''}">
+                                <img src="${slide.image}" alt="NBL Image ${index + 1}">
+                            </div>
+                        `).join('')}
+
+                        <button onclick="changeSlide(-1)" class="slide-nav-btn left">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                            </svg>
+                        </button>
+                        <button onclick="changeSlide(1)" class="slide-nav-btn right">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <h4 id="slide-heading" class="text-xl font-bold text-yellow-400 mb-2 text-center"></h4>
+                    <p id="slide-description" class="text-gray-300 mb-6 text-center"></p>
+
+                    <div class="flex justify-center mt-6">
+                        <button onclick="closeNBLInfoModal()" class="shining-button px-8 py-3 rounded-lg font-semibold text-base transition duration-200">
+                            Continue to Simulation
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // Set up click-outside-modal handler
+            nblInfoModal.onclick = (e) => {
+                if (e.target === nblInfoModal) {
+                    closeNBLInfoModal();
+                }
+            };
+            
+            // Show modal with animation
+            nblInfoModal.style.opacity = 0;
+            nblInfoModal.style.display = 'flex';
+            setTimeout(() => {
+                nblInfoModal.classList.add('visible');
+                nblInfoModal.style.opacity = 1;
+                currentSlideIndex = 0;
+                updateSlideContent(); // Update content based on currentSlideIndex=0
+                startSlideInterval();
+            }, 10);
+        };
+
+        // ** FIX 2: Expose changeSlide globally so HTML onclick can find it **
+        window.changeSlide = (direction) => {
+            clearInterval(slideInterval);
+            currentSlideIndex = (currentSlideIndex + direction + NBL_INFO_SLIDES.length) % NBL_INFO_SLIDES.length;
+            updateSlideContent();
+            startSlideInterval();
+        };
+
+        function updateSlideContent() {
+            // Must query inside nblInfoModal because content is dynamic
+            const slides = nblInfoModal.querySelectorAll('.slide');
+            const slideHeading = nblInfoModal.querySelector('#slide-heading');
+            const slideDescription = nblInfoModal.querySelector('#slide-description');
+
+            slides.forEach((slide, index) => {
+                slide.classList.toggle('active', index === currentSlideIndex);
+            });
+
+            if (slideHeading && slideDescription) {
+                slideHeading.textContent = NBL_INFO_SLIDES[currentSlideIndex].heading;
+                slideDescription.textContent = NBL_INFO_SLIDES[currentSlideIndex].description;
+            }
+        }
+
+        function startSlideInterval() {
+            slideInterval = setInterval(() => {
+                window.changeSlide(1); // Call the global version of changeSlide
+            }, 5000); // 5 seconds
+        }
+
+        // --- NBL Training Simulation Logic ---
+
+let astronautWeight = userWeight; 
+let ballastWeight = 0; 
+let liftBuoyancy = 0; 
+let totalNetBuoyancy = 0; 
+let currentPositionPx = 0; // Tracks the current vertical pixel position for smooth movement
+const NBL_POOL_HEIGHT = 500; 
+const NEUTRAL_TOLERANCE = 0.5; // Tighter tolerance for 'achieved' status (0.5 kg)
+let nblAnimationFrameId = null; // To manage the continuous NBL animation loop
+
+// Define the boundaries of the astronaut movement in pixels (height of the pool - height of astronaut)
+const ASTRONAUT_HEIGHT = 96; 
+const MAX_VERTICAL_MOVEMENT = NBL_POOL_HEIGHT - ASTRONAUT_HEIGHT;
+
+function calculateBuoyancy() {
+    // CORRECTED FORMULA: Lift - (Weight + Ballast)
+    totalNetBuoyancy = liftBuoyancy - (astronautWeight + ballastWeight);
+    
+    // Start the continuous animation loop if it's not running
+    if (!nblAnimationFrameId) {
+        animateBuoyancy();
+    }
+}
+
+/**
+ * Animates the astronaut's position smoothly and continuously based on Net Buoyancy (force).
+ */
+function animateBuoyancy() {
+    const astronaut = document.getElementById('nbl-astronaut');
+    if (!astronaut) {
+        // If the NBL view is closed, stop the animation loop
+        cancelAnimationFrame(nblAnimationFrameId);
+        nblAnimationFrameId = null;
+        return;
+    }
+
+    // Convert the force (KG NET) into a movement step (PX per frame)
+    // We scale the Net Buoyancy by a small factor (e.g., 0.1) to control speed.
+    // Negative totalNetBuoyancy (sinking) means positive movement in PX (down).
+    // Positive totalNetBuoyancy (rising) means negative movement in PX (up).
+    const MOVEMENT_SCALE_FACTOR = 0.15; // Controls the overall speed of drift
+    const movementStep = -totalNetBuoyancy * MOVEMENT_SCALE_FACTOR;
+
+    // Apply the movement step to the current position
+    currentPositionPx += movementStep;
+
+    // Boundary Checks: Stop the astronaut at the top (0px) and bottom (MAX_VERTICAL_MOVEMENT)
+    if (currentPositionPx < 0) {
+        currentPositionPx = 0;
+    } else if (currentPositionPx > MAX_VERTICAL_MOVEMENT) {
+        currentPositionPx = MAX_VERTICAL_MOVEMENT;
+    }
+
+    // Apply the new position
+    astronaut.style.transform = `translateY(${currentPositionPx}px)`;
+
+    // Update UI status/floating animation
+    updateNBLDisplay();
+    
+    // Loop the animation
+    nblAnimationFrameId = requestAnimationFrame(animateBuoyancy);
+}
+
+/**
+ * Generates and positions a set of bubbles within the NBL visualizer.
+ */
+function generateBubbles(containerId, count) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    let bubblesHtml = '';
+    for (let i = 0; i < count; i++) {
+        const size = Math.floor(Math.random() * 6) + 3; // 3px to 8px
+        // Randomly distribute bubbles across the entire pool area
+        const left = Math.floor(Math.random() * 100); 
+        const top = Math.floor(Math.random() * NBL_POOL_HEIGHT);
+        const duration = Math.floor(Math.random() * 10) + 10; // 10s to 20s
+        const delay = Math.floor(Math.random() * 10); // 0s to 10s
+        
+        bubblesHtml += `<div class="bubble" style="
+            width: ${size}px; 
+            height: ${size}px; 
+            left: ${left}%; 
+            top: ${top}px; /* Initial random vertical placement */
+            animation-duration: ${duration}s; 
+            animation-delay: ${delay}s;
+        "></div>`;
+    }
+    container.innerHTML = bubblesHtml;
+}
+
+function updateNBLDisplay() {
+    const statusText = document.getElementById('nbl-status');
+    const astronaut = document.getElementById('nbl-astronaut');
+    const astronautFloater = document.getElementById('nbl-astronaut-floater');
+    const taskButton = document.getElementById('nbl-task-btn');
+
+    if (document.getElementById('input-weight')) document.getElementById('input-weight').value = astronautWeight;
+    if (document.getElementById('ballast-val')) document.getElementById('ballast-val').textContent = ballastWeight;
+    if (document.getElementById('lift-val')) document.getElementById('lift-val').textContent = liftBuoyancy;
+
+    if (astronautFloater) {
+         astronautFloater.innerHTML = getAstronautSVG(customSuitColor, customSkinColor, 'w-full h-full text-white');
+    }
+
+    // --- Status and Animation Control ---
+    
+    // Check if totalNetBuoyancy is within the tight tolerance (0.5 kg) of zero
+    const isNeutral = Math.abs(totalNetBuoyancy) <= NEUTRAL_TOLERANCE; 
+
+    if (astronaut) {
+        if (isNeutral) {
+            astronaut.classList.add('nbl-floating');
+        } else {
+            astronaut.classList.remove('nbl-floating');
+        }
+    }
+
+
+    if (statusText) {
+        if (isNeutral) {
+            statusText.innerHTML = '<span class="text-green-400 font-extrabold" style="font-size: 18px; text-shadow: 0 0 8px rgba(0, 255, 0, 1);">[ STATUS: NEUTRAL BUOYANCY ACHIEVED ]</span>';
+            if (taskButton) {
+                taskButton.classList.remove('bg-gray-500', 'cursor-not-allowed');
+                taskButton.classList.add('shining-button');
+                taskButton.disabled = false;
+                taskButton.style.cssText = `background-color: #f6ad55; color: #1a202c; box-shadow: 0 0 20px #f6ad55; border: 1px solid #f6ad55; transform: scale(1.05);`;
+            }
+        } else {
+            const statusTextContent = totalNetBuoyancy.toFixed(0) + ' KG NET';
+            statusText.innerHTML = `<span class="text-red-400 font-mono" style="text-shadow: 0 0 6px #ff0000;">${statusTextContent} - ${totalNetBuoyancy < 0 ? 'SINKING' : 'RISING'}</span>`;
+            if (taskButton) {
+                taskButton.classList.remove('shining-button');
+                taskButton.classList.add('bg-gray-500', 'cursor-not-allowed');
+                taskButton.disabled = true;
+                taskButton.style.cssText = `background-color: #1a202c; color: #718096; box-shadow: none; border: 1px solid #4a5568;`;
+            }
+        }
+    }
+}
+
+window.setWeight = (input) => {
+    const weight = parseFloat(input.value);
+    // When weight changes, recalculate buoyancy immediately
+    if (weight >= 40 && weight <= 150) {
+        astronautWeight = weight;
+        calculateBuoyancy();
+    } else {
+        showMessage("Input Error: Astronaut weight must be between 40kg and 150kg.", 'error');
+    }
+};
+
+window.adjustBallast = (delta) => {
+    ballastWeight = Math.min(Math.max(0, ballastWeight + delta), 100); // Increased max range for visual effect
+    calculateBuoyancy();
+};
+
+window.adjustLift = (delta) => {
+    liftBuoyancy = Math.min(Math.max(0, liftBuoyancy + delta), 100); // Increased max range for visual effect
+    calculateBuoyancy();
+};
+
+// --- RESET Functions ---
+window.resetBallast = () => {
+    ballastWeight = 0; 
+    calculateBuoyancy();
+};
+
+window.resetLift = () => {
+    liftBuoyancy = 0; 
+    calculateBuoyancy();
+};
+// --- END RESET FUNCTIONS ---
+
+// --- NEW CONFETTI FUNCTION ---
+/**
+ * Triggers a confetti celebration effect across the viewport.
+ */
+function showConfetti() {
+    // Check if confetti is available (it should be, since we loaded the script)
+    if (typeof confetti !== 'function') return;
+
+    const duration = 3 * 1000;
+    const animationEnd = Date.now() + duration;
+    // Defaults for a big, wide spread
+    const defaults = { 
+        startVelocity: 35, 
+        spread: 360, 
+        ticks: 80, 
+        zIndex: 9999,
+        colors: ['#00FFFF', '#FF0040', '#FFFF00', '#00FF7F', '#FFFFFF']
+    };
+
+    function randomInRange(min, max) {
+        return Math.random() * (max - min) + min;
+    }
+
+    const interval = setInterval(function() {
+        const timeLeft = animationEnd - Date.now();
+        if (timeLeft <= 0) {
+            return clearInterval(interval);
+        }
+
+        const particleCount = 50 * (timeLeft / duration);
+        
+        // Shoot from the left side of the screen
+        confetti({
+            ...defaults,
+            particleCount: particleCount * 0.5,
+            origin: { x: randomInRange(0.1, 0.3), y: randomInRange(0.4, 0.8) }
+        });
+
+        // Shoot from the right side of the screen
+        confetti({
+            ...defaults,
+            particleCount: particleCount * 0.5,
+            origin: { x: randomInRange(0.7, 0.9), y: randomInRange(0.4, 0.8) }
+        });
+    }, 250);
+}
+// --- END NEW CONFETTI FUNCTION ---
+
+window.startTask = () => {
+    if (Math.abs(totalNetBuoyancy) <= NEUTRAL_TOLERANCE) {
+        showMessage("TASK COMPLETE: Hatch repair successful. Proceeding to debrief. Training module complete.", 'success');
+        // *** IMPLEMENTATION: CALL CONFETTI ON SUCCESS ***
+        showConfetti();
+    } else {
+        showMessage("TASK ABORTED: Buoyancy stabilization failed. Correct net buoyancy before attempting EVA task.", 'error');
+    }
+};
+
+function renderNBL() {
+    nblInfoShown = true; // Set flag to true so next time the info modal is skipped
+    contentArea.innerHTML = `
+        <div class="p-4 md:p-8 rounded-2xl">
+            <h2 class="text-3xl font-bold text-white mb-6 border-b border-gray-800 pb-3" style="text-shadow: 0 0 5px #00FFFF;">Neutral Buoyancy Laboratory: EVA Training</h2>
+            <p class="mb-6 text-gray-300 font-mono">OBJECTIVE: Stabilize net buoyancy to zero (Target: Lift = Weight + Ballast) to enable spacewalk simulation. Current Observer: Custom EVA Suit.</p>
+
+            <div class="flex flex-col lg:flex-row gap-6">
+                
+                <div class="lg:w-1/2 p-6 rounded-xl border border-blue-800 space-y-4" style="background-color: rgba(0, 0, 0, 0.9);">
+                    
+                    <div>
+                        <label for="input-weight" class="block text-white font-semibold mb-2">1. BASELINE MASS INPUT (KG)</label>
+                        <input id="input-weight" type="number" min="40" max="150" value="${astronautWeight}" oninput="setWeight(this)"
+                               class="w-full p-3 rounded-lg sci-fi-input text-white focus:ring-blue-500 focus:border-blue-500 transition">
+                    </div>
+
+                    <div>
+                        <label class="block text-white font-semibold mb-2 flex items-center space-x-2">
+                            <span>2. BALLAST (MASS ADDITION): <span id="ballast-val" class="text-yellow-400 font-bold">${ballastWeight}</span> KG</span>
+                            <button class="info-btn" onclick="showInfo('Ballast')">i</button>
+                        </label>
+                        <div class="flex space-x-3">
+                            <button onclick="adjustBallast(-5)" class="shining-button px-4 py-2 rounded-lg font-bold transition duration-200">-5</button>
+                            <button onclick="adjustBallast(5)" class="shining-button px-4 py-2 rounded-lg font-bold transition duration-200">+5</button>
+                            <button onclick="resetBallast()" class="shining-button px-4 py-2 rounded-lg font-bold transition duration-200" style="border-color: #6366f1; color: #6366f1; box-shadow: 0 0 8px rgba(99, 102, 241, 0.5);">RESET</button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-white font-semibold mb-2 flex items-center space-x-2">
+                            <span>3. LIFT (BUOYANCY COMP.): <span id="lift-val" class="text-yellow-400 font-bold">${liftBuoyancy}</span> KG</span>
+                            <button class="info-btn" onclick="showInfo('Lift')">i</button>
+                        </label>
+                        <div class="flex space-x-3">
+                            <button onclick="adjustLift(-5)" class="shining-button px-4 py-2 rounded-lg font-bold transition duration-200">-5</button>
+                            <button onclick="adjustLift(5)" class="shining-button px-4 py-2 rounded-lg font-bold transition duration-200">+5</button>
+                            <button onclick="resetLift()" class="shining-button px-4 py-2 rounded-lg font-bold transition duration-200" style="border-color: #6366f1; color: #6366f1; box-shadow: 0 0 8px rgba(99, 102, 241, 0.5);">RESET</button>
+                        </div>
+                    </div>
+                    
+                    <div class="pt-4 border-t border-gray-800">
+                        <p class="font-bold mb-2 flex items-center space-x-2 text-blue-400">
+                            <span>STATUS: BUOYANCY CALIBRATION</span>
+                            <button class="info-btn" onclick="showInfo('NeutralBuoyancy')">i</button>
+                        </p>
+                        <div id="nbl-status" class="text-xl font-mono text-white mb-4">Loading...</div>
+                        <button id="nbl-task-btn" onclick="startTask()" disabled
+                            class="w-full mt-4 p-3 rounded-lg font-bold text-lg transition duration-300">
+                            4. INITIATE EVA REPAIR SEQUENCE
+                        </button>
+                    </div>
+                </div>
+
+                <div class="lg:w-1/2 p-4 nbl-pool rounded-xl shadow-inner relative overflow-hidden" style="height: ${NBL_POOL_HEIGHT}px;">
+                    <h3 class="text-xl font-bold text-white mb-2 text-center" style="text-shadow: 0 0 5px #00FFFF;">NBL TANK VISUALIZER</h3>
+
+                    <div id="nbl-bubbles" class="bubble-container">
+                        </div>
+
+                    <div id="nbl-indicator" class="absolute left-0 right-0 h-10 border-4 border-dashed border-yellow-400 bg-yellow-400/20 rounded-lg flex items-center justify-center -translate-y-1/2" style="top: 50%; box-shadow: 0 0 20px rgba(255, 200, 0, 0.9); z-index: 15;">
+                        <span class="text-sm font-bold text-yellow-100 font-mono">TARGET ZONE (0KG NET)</span>
+                    </div>
+
+                    <div id="nbl-astronaut" class="nbl-astronaut-container absolute left-1/2 -ml-10 w-20 h-24" style="top: 0px; z-index: 20;">
+                        <div id="nbl-astronaut-floater" class="nbl-astronaut-floater">
+                            <svg class="w-full h-full text-white drop-shadow-lg" viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg">
+                                <!-- SVG content for astronaut -->
+                            </svg>
+                        </div>
+                    </div>
+                    
+                    <div class="absolute bottom-0 left-0 right-0 h-16 bg-gray-900 border-t-4 border-gray-600 flex items-center justify-center" style="box-shadow: 0 0 10px rgba(255, 255, 255, 0.2); z-index: 25;">
+                        <div class="w-32 h-10 bg-gray-700 rounded-lg border-2 border-red-500 p-1 text-xs text-center text-white font-bold flex items-center justify-center">
+                            ISS MODULE MOCKUP
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        // Initialize NBL display and generate bubbles
+        // We call calculateBuoyancy, which triggers animateBuoyancy, starting the loop
+        calculateBuoyancy();
+        generateBubbles('nbl-bubbles', 30);
+        
+        // Ensure the continuous loop is running when the page is rendered
+        if (!nblAnimationFrameId) {
+            animateBuoyancy();
+        }
+    }
+    
+    // --- NEW EVA Game Renderer ---
+    function renderEVAGame() {
+        contentArea.innerHTML = `
+            <div class="p-4 md:p-8 rounded-2xl">
+                <h2 class="text-3xl font-bold text-white mb-6 border-b border-gray-800 pb-3" style="text-shadow: 0 0 5px #00FFFF;">Space EVA Game: Mission to ISS</h2>
+                <p class="mb-4 text-gray-300 font-mono">
+                    OBJECTIVE: Maneuver your astronaut to the International Space Station (ISS) while avoiding orbital debris. You have 20 seconds of oxygen.
+                </p>
+                <p class="mb-6 text-yellow-400 font-mono text-sm">
+                    CONTROLS: Use ARROW KEYS to move. (Ensure the game area is focused after pressing START).
+                    <ul class="mb-6 text-gray-300 font-mono list-disc list-inside mt-2">
+                        <li><span class="text-red-500 font-bold">UP ARROW</span>: Activates Lift (upward thrusters).</li>
+                        <li><span class="text-red-500 font-bold">DOWN ARROW</span>: Activates Ballast (downward thrusters).</li>
+                        <li><span class="text-red-500 font-bold">LEFT ARROW</span>: Moves you backward.</li>
+                        <li><span class="text-red-500 font-bold">RIGHT ARROW</span>: Moves you forward.</li>
+                    </ul>
+                </p>
+
+                <!-- START: Button moved outside the glow box -->
+               <div style="display: flex; justify-content: center;">
+                    <button id="start-game-btn" onclick="startSpaceGame(); document.getElementById('game-placeholder').style.opacity = '0'; document.getElementById('game-placeholder').style.pointerEvents = 'none';" 
+                    class="mt-4 shining-button px-6 py-3 rounded-lg font-bold mb-6">
+                    START GAME
+                    </button>
+                </div>
+
+                <div class="flex flex-col items-center p-4 rounded-xl border border-blue-800" style="background-color: rgba(0, 0, 0, 0.9); box-shadow: 0 0 30px #00FFFF;">
+                    
+                    <!-- Canvas Container (Made larger: max-w-4xl) -->
+                    <div id="game-canvas-container" class="relative w-full max-w-4xl">
+                        <canvas id="space-game-canvas" width="900" height="420" class="border border-gray-700 rounded-lg w-full"></canvas>
+                        
+                        <!-- Placeholder Text: Disappears when game starts -->
+                        <div id="game-placeholder" class="absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-300">
+                             <div class="text-center p-4 bg-black/50 rounded-lg shadow-2xl animate-pulse">
+                                <p class="text-white text-5xl font-extrabold mb-2" style="text-shadow: 0 0 10px #00FFFF;">MISSION TO ISS</p>
+                                <p class="text-white text-xl font-semibold">Press START GAME button above</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p id="space-game-message" class="mt-2 text-2xl font-bold"></p>
+                    
+                </div>
+            </div>
+        `;
+        
+        // After injecting the canvas, initialize the canvas size and start the "PLAY THE GAME" loop.
+        const canvasElement = document.getElementById('space-game-canvas');
+        if (canvasElement && typeof initializeGameCanvas === 'function') {
+            initializeGameCanvas(canvasElement);
+        }
+    }
+    // --- END NEW EVA Game Renderer ---
+
+
+    // --- Initial Load ---
+    window.addEventListener('load', () => {
+        // Render the setup modal on page load
+        renderSetupModal();
+    });
+    
+    // FIX: Expose renderSetupModal globally so it can be called from HTML onclick handlers.
+    window.renderSetupModal = renderSetupModal;
+
+    window.setFaceImage = (imageDataURL) => {
+    customFaceImage = imageDataURL;
+    // Re-render everything that uses the astronaut model
+    renderAstronautPreview('astronaut-preview-container');
+    updateCupolaStatus();
+};
+
+    window.getAstronautSVG = getAstronautSVG;
+    window.customSuitColor = customSuitColor;
+    window.customSkinColor = customSkinColor;
+
+</script>
+<!-- Space EVA Game Module -->
+<!-- The game logic is still in space_game.js but its entry point is now called via renderEVAGame() -->
+<script src="space_game.js"></script>
+
+</body>
+</html>
