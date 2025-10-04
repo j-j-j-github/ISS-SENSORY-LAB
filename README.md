@@ -44,7 +44,7 @@ The project is a single, self-contained HTML file, making setup simple.
 
 ### Clone the Repository
 ```bash
-git clone [repository-url]
+git clone https://github.com/j-j-j-github/ISS-SENSORY-LAB
 ```
 
 ### Run the Application
