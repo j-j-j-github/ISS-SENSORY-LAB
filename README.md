@@ -2,7 +2,7 @@
 
 This project is an interactive web-based simulator designed to immerse users in three critical environments of astronaut life: **Earth observation from the International Space Station (ISS) Cupola**, **spacewalk training in the Neutral Buoyancy Laboratory (NBL)**, and a simulated mission with the **Space EVA Game**.
 
-It was initially developed as part of the **2025 NASA Space Apps Challenge**.
+Developed as part of the **2025 NASA Space Apps Challenge**.
 
 ---
 
